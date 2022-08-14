@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 // classes will only be shown in inspector if we use this attribute
 [System.Serializable]
@@ -8,6 +9,15 @@ public class Hedgehog
 {
     [SerializeField] HedgehogBase _base;
     [SerializeField] int level;
+
+    public Hedgehog(HedgehogBase pBase, int pLevel)
+    {
+        _base = pBase;
+        level = pLevel;
+
+        Init();
+    }
+
     public HedgehogBase Base 
     {
         get 
@@ -22,9 +32,13 @@ public class Hedgehog
         }
     }
 
+    public int Exp { get; set; }
+
     public int HP { get; set; }
 
     public List<Move> Moves { get; set; }
+
+    public Move CurrentMove { get; set; }
 
     // dictionary - like a list but along with the value, stores a key
     public Dictionary<Stat, int> Stats { get; private set; }
@@ -32,8 +46,11 @@ public class Hedgehog
     // dictionary for stats that can be increased and decreased for each move
     public Dictionary<Stat, int> StatBoosts { get; private set; }
 
+    public Condition Status { get; private set; }
+
     // used to store a list of elements like a list but can also take elements out of a queue in order of which added to the queue
-    public Queue<string> StatusChanges { get; private set; } = new Queue<string>();
+    public Queue<string> StatusChanges { get; private set; }
+    public bool HpChanged { get; set; }
     public void Init()
     {
         
@@ -46,14 +63,17 @@ public class Hedgehog
                 Moves.Add(new Move(move.Base));
             }
 
-            if (Moves.Count >= 4)
+            if (Moves.Count >= HedgehogBase.MaxNumOfMoves)
             {
                 break;
             }
         }
 
+        Exp = Base.GetExpForLevel(level);
+
         CalculateStats();
         HP = MaxHp;
+        StatusChanges = new Queue<string>();
         ResetStatBoost();
     }
 
@@ -77,7 +97,9 @@ public class Hedgehog
             {Stat.Defense, 0},
             {Stat.SpAttack, 0},
             {Stat.SpDefense, 0},
-            {Stat.Speed, 0}
+            {Stat.Speed, 0},
+            {Stat.Accuracy, 0},
+            {Stat.Evasion, 0}
         };
     }
     int GetStat(Stat stat)
@@ -121,6 +143,32 @@ public class Hedgehog
 
             Debug.Log($"{stat} has been boosted to {StatBoosts[stat]}");
         }
+    }
+
+    public bool CheckForLevelUp()
+    {
+        if (Exp > Base.GetExpForLevel(level + 1))
+        {
+            ++level;
+            return true;
+        }
+        
+        return false;
+    }
+
+    public LearnableMove GetLearnableMoveAtCurrLevel()
+    {
+        return Base.LearnableMoves.Where(x => x.Level == level).FirstOrDefault(); //returns list of learnable moves that has current level
+    }
+
+    public void LearnMove(LearnableMove moveToLearn)
+    {
+        if (Moves.Count > HedgehogBase.MaxNumOfMoves)
+        {
+            return;
+        }
+
+        Moves.Add(new Move(moveToLearn.Base));
     }
 
     public int Attack 
@@ -183,21 +231,34 @@ public class Hedgehog
         float a = (2 * attacker.Level + 10) / 250f;
         float d = a * move.Base.Power * ((float)attack / defense) + 2;
         int damage = Mathf.FloorToInt(d * modifiers);
-
-        HP -= damage;
-        if (HP <= 0)
-        {
-            // hedgehog fainted
-            HP = 0;
-            damageDetails.Fainted = true;
-        }
-
+        
+        UpdateHP(damage);
+        
         return damageDetails;
     }
+
+    public void UpdateHP(int damage)
+    {
+        HP = Mathf.Clamp(HP - damage, 0, MaxHp);
+        HpChanged = true;
+    }
+
+    public void SetStatus(ConditionID conditionID)
+    {
+        Status = ConditionsDB.Conditions[conditionID];
+        StatusChanges.Enqueue($"{Base.Name} {Status.StartMessage}");
+    }
+
     public Move GetRandomMove()
     {
-        int r = Random.Range(0, Moves.Count);
-        return Moves[r];
+        var movesWithPP = Moves.Where(x => x.Pp > 0).ToList();
+        int r = Random.Range(0, movesWithPP.Count);
+        return movesWithPP[r];
+    }
+
+    public void OnAfterTurn()
+    {
+        Status?.OnAfterTurn?.Invoke(this); // only invoke if not null
     }
 
     public void OnBattleOver()

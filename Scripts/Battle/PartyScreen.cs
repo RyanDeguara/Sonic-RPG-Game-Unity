@@ -11,7 +11,7 @@ public class PartyScreen : MonoBehaviour
     List <Hedgehog> hedgehogs;
     public void Init()
     {
-        memberSlots = GetComponentsInChildren<PartyMemberUI>();
+        memberSlots = GetComponentsInChildren<PartyMemberUI>(true);
     }
 
     public void SetPartyData(List<Hedgehog> hedgehogs)
@@ -22,6 +22,7 @@ public class PartyScreen : MonoBehaviour
         {
             if (i < hedgehogs.Count)
             {
+                memberSlots[i].gameObject.SetActive(true);
                 memberSlots[i].SetData(hedgehogs[i]);
             }
             else

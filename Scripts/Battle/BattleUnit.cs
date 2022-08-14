@@ -43,10 +43,18 @@ public class BattleUnit : MonoBehaviour
         {
             image.sprite = Hedgehog.Base.FrontSprite;
         }
+        hud.gameObject.SetActive(true);
 
         hud.SetData(hedgehog);
+
+        transform.localScale = new Vector3(1, 1, 1); // reset scale incase of any scale changes for when next time it appears in battle
         image.color = originalColor;
         PlayEnterAnimation();
+    }
+
+    public void Clear()
+    {
+        hud.gameObject.SetActive(false);
     }
 
     public void PlayEnterAnimation()
@@ -90,5 +98,27 @@ public class BattleUnit : MonoBehaviour
         var sequence = DOTween.Sequence();
         sequence.Append(image.transform.DOLocalMoveY(originalPos.y - 150f, 0.5f));
         sequence.Join(image.DOFade(0f, 0.5f)); 
+    }
+
+    public IEnumerator PlayCaptureAnimation()
+    {
+        var sequence = DOTween.Sequence();
+        //sequence.Append(image.DOFade(0,0.5f));
+        sequence.Append(image.DOColor(Color.red, 0.1f));
+        sequence.Join(transform.DOLocalMoveY(originalPos.y + 200f, 0.5f));
+        //sequence.Join(transform.DOScale(new Vector3(0.3f, 0.3f, 1f), 0.5f));
+        yield return sequence.WaitForCompletion();
+        
+    }
+
+    public IEnumerator PlayBreakOutAnimation()
+    {
+        var sequence = DOTween.Sequence();
+        //sequence.Append(image.DOFade(0,0.5f));
+        sequence.Append(image.DOColor(originalColor, 0.1f));
+        sequence.Join(transform.DOLocalMoveY(originalPos.y, 0.5f));
+        //sequence.Join(transform.DOScale(new Vector3(0.3f, 0.3f, 1f), 0.5f));
+        yield return sequence.WaitForCompletion();
+        
     }
 }

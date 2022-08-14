@@ -12,10 +12,13 @@ public class MoveBase : ScriptableObject
     [SerializeField] HedgehogType type;
     [SerializeField] int power;
     [SerializeField] int accuracy;
+    [SerializeField] bool alwaysHits;
     [SerializeField] int pp; // no. of times a move can be performed
+    [SerializeField] int priority;
 
     [SerializeField] MoveCategory category;
     [SerializeField] MoveEffects effects;
+    [SerializeField] List<SecondaryEffects> secondaryEffects;  
     [SerializeField] MoveTarget target;
 
     public string Name 
@@ -42,11 +45,21 @@ public class MoveBase : ScriptableObject
     {
         get { return accuracy; }
     }
+    public bool AlwaysHits
+    {
+        get { return alwaysHits; }
+    }
 
     public int Pp
     {
         get { return pp; }
     }
+
+    public int Priority
+    {
+        get { return priority; }
+    }
+    
     public MoveCategory Category
     {
         get { return category; }
@@ -60,6 +73,11 @@ public class MoveBase : ScriptableObject
     public MoveTarget Target
     {
         get { return target; }
+    }
+
+    public List<SecondaryEffects> SecondaryEffects
+    {
+        get { return secondaryEffects; }
     }
 
     /*public bool isSpecial
@@ -82,9 +100,31 @@ public class MoveBase : ScriptableObject
 public class MoveEffects
 {
     [SerializeField] List<StatBoost> boosts;
+    [SerializeField] ConditionID status;
     public List<StatBoost> Boosts
     {
         get { return boosts; }
+    }
+    public ConditionID Status
+    {
+        get {return status; }
+    }
+}
+
+[System.Serializable]
+public class SecondaryEffects : MoveEffects // inherit all of moveeffects
+{
+    [SerializeField] int chance;
+    [SerializeField] MoveTarget target;
+
+    public int Chance
+    {
+        get { return chance; }
+    }
+
+    public MoveTarget Target
+    {
+        get { return target; }
     }
 }
 

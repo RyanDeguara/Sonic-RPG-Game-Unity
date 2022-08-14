@@ -21,13 +21,61 @@ public class HedgehogBase : ScriptableObject
     [SerializeField] int spDefense;
     [SerializeField] int speed;
 
+    [SerializeField] int expYield;
+    [SerializeField] GrowthRate growthRate;
+    [SerializeField] int catchRate = 255;
+
     [SerializeField] List<LearnableMove> learnableMoves;
+    public static int MaxNumOfMoves { get; set;} = 4;
 
     //properties
     /*public string GetName()
     {
         return name;
     }*/
+
+    public int GetExpForLevel(int level)
+    {
+        if (growthRate == GrowthRate.Fast)
+        {
+            return 4 * (level * level * level) / 5;
+        }
+        else if (growthRate == GrowthRate.MediumFast)
+        {
+            return level * level * level;
+        }
+        else if (growthRate == GrowthRate.MediumSlow)
+        {
+            return 6 * (level * level * level) / 5 - 15 * (level * level) + 100 * level - 140;
+        }
+        else if (growthRate == GrowthRate.Slow)
+        {
+            return 5 * (level * level * level) / 4;
+        }
+        else if (growthRate == GrowthRate.Fluctuating)
+        {
+            return GetFluctuating(level);
+        }
+
+        return -1; // error growth rate doesnt exist
+    }
+
+    public int GetFluctuating(int level)
+    {
+        if (level <= 15)
+        {
+            return Mathf.FloorToInt(Mathf.Pow(level, 3) * ((Mathf.Floor((level + 1) / 3) + 24) / 50));
+        }
+        else if (level >= 15 && level <= 36)
+        {
+            return Mathf.FloorToInt(Mathf.Pow(level, 3) * ((level + 14) / 50));
+        }
+        else
+        {
+            return Mathf.FloorToInt(Mathf.Pow(level, 3) * ((Mathf.Floor(level / 2) + 32) / 50));
+        }
+    }
+
     public string Name 
     {
         get { return name; }
@@ -93,6 +141,11 @@ public class HedgehogBase : ScriptableObject
         get { return learnableMoves; }
     }
 
+    public int CatchRate => catchRate; // short way to write if only need getter
+
+    public int ExpYield => expYield;
+    public GrowthRate GrowthRate => growthRate;
+
 }
 
 [System.Serializable]
@@ -119,7 +172,17 @@ public enum HedgehogType
     Fly,
     Metal,
     Robot,
-    Chaos
+    Chaos,
+    Explosive
+}
+
+public enum GrowthRate
+{
+    Fast, 
+    MediumFast,
+    MediumSlow,
+    Slow,
+    Fluctuating
 }
 
 public enum Stat
@@ -128,21 +191,24 @@ public enum Stat
     Defense,
     SpAttack,
     SpDefense,
-    Speed
+    Speed,
+    Accuracy,
+    Evasion
 }
 
 public class TypeChart
 {
     static float [][] chart =
     {
-        //                      NOR SPE POW FLY MET ROB CHA
-        /* Normal*/ new float[] {1f, 1f, 1f, 1f, 1f, 1f, 0.5f},
-        /* Speed */ new float[] {1f, 0.5f, 1f, 0.5f, 2f, 2f, 0.5f}, // 2 weak 2 strong
-        /* Power */ new float[] {1f, 1f, 0.5f, 2f, 0.5f, 2f, 0.5f}, // 2 weak 2 strong 
-        /* Fly */   new float[] {1f, 2f, 2f, 0.5f, 0.5f, 1f, 0.5f}, // 2 weak 2 strong
-        /* Metal */ new float[] {1f, 0.5f, 2f, 2f, 0.5f, 1f, 0.5f}, // 2 weak 2 strong
-        /* Robot */ new float[] {1f, 0.5f, 0.5f, 1f, 1f, 0.5f, 0.5f}, // 3 weak
-        /* Chaos */ new float[] {2f, 2f, 2f, 2f, 2f, 2f, 0.5f} //  6 strong
+        //                      NOR SPE POW FLY MET ROB CHA EXP
+        /* Normal*/ new float[] {1f, 1f, 1f, 1f, 1f, 1f, 0.5f, 1f},
+        /* Speed */ new float[] {1f, 0.5f, 1f, 0.5f, 2f, 2f, 0.5f, 1f}, // 2 weak 2 strong
+        /* Power */ new float[] {1f, 1f, 0.5f, 2f, 0.5f, 2f, 0.5f, 1f}, // 2 weak 2 strong 
+        /* Fly */   new float[] {1f, 2f, 2f, 0.5f, 0.5f, 1f, 0.5f, 1f}, // 2 weak 2 strong
+        /* Metal */ new float[] {1f, 0.5f, 2f, 2f, 0.5f, 1f, 0.5f, 1f}, // 2 weak 2 strong
+        /* Robot */ new float[] {1f, 0.5f, 0.5f, 1f, 1f, 0.5f, 0.5f, 1f}, // 3 weak
+        /* Chaos */ new float[] {2f, 2f, 2f, 2f, 2f, 2f, 0.5f, 2f}, //  6 strong
+        /* Explosive */ new float[] {2f, 1f, 1f, 1f, 1f, 1f, 0.5f, 0.5f}
     };
 
     public static float GetEffectiveness(HedgehogType attackType, HedgehogType defenseType)
