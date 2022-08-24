@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // Solve issue when using keys in battle affecting players position in the freeroam map
-public enum GameState { FreeRoam, Battle, Dialog, Cutscene }
+public enum GameState { FreeRoam, Battle, Dialog, Cutscene, Paused }
 
 public class GameController : MonoBehaviour
 {
@@ -12,6 +12,9 @@ public class GameController : MonoBehaviour
     [SerializeField] Camera worldCamera;
     
     GameState state;
+    GameState stateBeforePause;
+    public SceneDetails CurrentScene { get; private set; }
+    public SceneDetails PrevScene { get; private set; }
 
     public static GameController Instance { get; private set; }
 
@@ -26,17 +29,7 @@ public class GameController : MonoBehaviour
 
     private void Start()
     {
-        playerController.OnEncountered += StartBattle;
         battleSystem.OnBattleOver += EndBattle;
-        playerController.OnEnterTraintersView += (Collider2D trainerCollider) =>
-        {
-            var trainer = trainerCollider.GetComponentInParent<TrainerController>();
-            if (trainer != null)
-            {
-                state = GameState.Cutscene;
-                StartCoroutine(trainer.TriggerTrainerBattle(playerController));
-            }
-        };
 
         originalpos = Joystick.transform.position;
         
@@ -54,7 +47,20 @@ public class GameController : MonoBehaviour
         };
     }
 
-    void StartBattle()
+    public void PauseGame(bool pause)
+    {
+        if (pause)
+        {
+            stateBeforePause = state;
+            state = GameState.Paused;
+        }
+        else
+        {
+            state = stateBeforePause;
+        }
+    }
+
+    public void StartBattle()
     {
         state = GameState.Battle;
         // Disable main camera and enable battle
@@ -62,7 +68,7 @@ public class GameController : MonoBehaviour
         worldCamera.gameObject.SetActive(false);
         
         var playerParty = playerController.GetComponent<HedgehogParty>();
-        var wildHedgehog = FindObjectOfType<MapArea>().GetComponent<MapArea>().GetRandomWildHedgehog();
+        var wildHedgehog = CurrentScene.GetComponent<MapArea>().GetRandomWildHedgehog();
 
         var wildHedgehogCopy = new Hedgehog(wildHedgehog.Base, wildHedgehog.Level);
 
@@ -90,6 +96,12 @@ public class GameController : MonoBehaviour
 
         //Joystick.transform.position = originalpos + 200;
         Joystick.transform.localPosition = new Vector3(-100000f, originalpos.y);
+    }
+
+    public void OnEnterTraintersView(TrainerController trainer)
+    {
+        state = GameState.Cutscene;
+        StartCoroutine(trainer.TriggerTrainerBattle(playerController));
     }
 
     void EndBattle(bool won)
@@ -122,5 +134,11 @@ public class GameController : MonoBehaviour
         {
             DialogManager.Instance.HandleUpdate();
         }
+    }
+
+    public void SetCurrentScene(SceneDetails currScene)
+    {
+        PrevScene = CurrentScene;
+        CurrentScene = currScene;
     }
 }

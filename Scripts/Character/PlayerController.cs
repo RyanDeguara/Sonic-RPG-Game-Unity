@@ -7,12 +7,8 @@ public class PlayerController : MonoBehaviour
 {
     [SerializeField] string name;
     [SerializeField] Sprite sprite;
-    const float offsetY = 0.3f;
     public Joystick joystick;
     public float moveSpeed;
-
-    public event Action OnEncountered;
-    public event Action<Collider2D> OnEnterTraintersView;
     private Vector2 input;
 
     private Character character;
@@ -66,22 +62,20 @@ public class PlayerController : MonoBehaviour
 
     private void OnMoveOver()
     {
-        CheckForEncounters();
-        CheckIfInTrainersView();
-    }
-
-    private void CheckForEncounters()
-    {
-        if (Physics2D.OverlapCircle(transform.position - new Vector3(0, offsetY), 0.2f, GameLayers.i.GrassLayer) != null)
+        // returns first game object of which it overlapped - OverlapCircle, we need all so we use All
+        var colliders = Physics2D.OverlapCircleAll(transform.position - new Vector3(0, character.OffSetY), 0.2f, GameLayers.i.TriggerableLayers);
+        foreach (var collider in colliders)
         {
-            if (UnityEngine.Random.Range(1,101) <= 10) //1-100
+            var triggerable = collider.GetComponent<IPlayerTriggerable>();
+            if (triggerable != null)
             {
-                character.Animator.IsMoving = false;
-                OnEncountered();
+                triggerable.onPlayerTriggered(this);
+                break;
             }
         }
     }
 
+    /* Old Code - new approach by moving code by using interfaces that is used for all triggerable objects
     private void CheckIfInTrainersView()
     {
         var collider = Physics2D.OverlapCircle(transform.position - new Vector3(0, offsetY), 0.2f, GameLayers.i.FovLayer);
@@ -91,6 +85,7 @@ public class PlayerController : MonoBehaviour
            OnEnterTraintersView?.Invoke(collider);
         }
     }
+    */
 
     public string Name {
         get => name;
@@ -99,4 +94,6 @@ public class PlayerController : MonoBehaviour
     public Sprite Sprite {
         get => sprite;
     }
+
+    public Character Character => character;
 }

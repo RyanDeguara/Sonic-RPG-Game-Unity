@@ -4,9 +4,10 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
+using System.Linq;
 
 // need a var to store state of the battle
-public enum BattleState { Start, ActionSelection, MoveSelection, RunningTurn, Busy, PartyScreen, AboutToUse, BattleOver}
+public enum BattleState { Start, ActionSelection, MoveSelection, RunningTurn, Busy, PartyScreen, AboutToUse, MoveToForget, BattleOver}
 public enum BattleAction { Move, SwitchHedgehog, UseItem, Run}
 
 public class BattleSystem : MonoBehaviour
@@ -18,6 +19,7 @@ public class BattleSystem : MonoBehaviour
     [SerializeField] Image playerImage;
     [SerializeField] Image trainerImage;
     [SerializeField] GameObject sonicBallSprite;
+    [SerializeField] MoveSelectionUI moveSelectionUI;
  
     public event Action<bool> OnBattleOver;
 
@@ -26,6 +28,7 @@ public class BattleSystem : MonoBehaviour
     int currentAction;
     int currentMove;
     int currentMember;
+    int currentSelection;
     bool aboutToUseChoice = true;
 
     HedgehogParty playerParty;
@@ -36,6 +39,7 @@ public class BattleSystem : MonoBehaviour
     TrainerController trainer;
 
     int escapeAttempts;
+    MoveBase moveToLearn;
 
     public void StartBattle(HedgehogParty playerParty, Hedgehog wildHedgehog)
     {
@@ -165,6 +169,17 @@ public class BattleSystem : MonoBehaviour
 
         state = BattleState.AboutToUse;
         dialogBox.EnableChoiceBox(true);
+    }
+
+    IEnumerator ChooseMoveToForget(Hedgehog hedgehog, MoveBase newMove)
+    {
+        state = BattleState.Busy;
+        yield return dialogBox.TypeDialog($"Choose a new move you want to forget");
+        moveSelectionUI.gameObject.SetActive(true);
+        moveSelectionUI.SetMoveData(hedgehog.Moves.Select(x => x.Base).ToList(), newMove); // 1st parameter - converts a list of move class into a list of move base class
+        moveToLearn = newMove;
+
+        state = BattleState.MoveToForget;
     }
 
     IEnumerator RunTurns(BattleAction playerAction)
@@ -458,7 +473,12 @@ public class BattleSystem : MonoBehaviour
                     }
                     else
                     {
-                        // To Do: Option to forget a move
+                        // Option to forget a move
+                        yield return dialogBox.TypeDialog($"{playerUnit.Hedgehog.Base.Name} is trying to learn {newMove.Base.Name}");
+                        yield return dialogBox.TypeDialog($"But it cannot learn more than {HedgehogBase.MaxNumOfMoves} moves");
+                        yield return ChooseMoveToForget(playerUnit.Hedgehog, newMove.Base);
+                        yield return new WaitUntil(() => state != BattleState.MoveToForget);
+                        yield return new WaitForSeconds(2f);
                     }
                 }
 
@@ -542,7 +562,55 @@ public class BattleSystem : MonoBehaviour
         {
             HandleAboutToUse();
         }
+        else if (state == BattleState.MoveToForget)
+        {
+            Action<int> onMoveSelected = (moveIndex) =>
+            {
+                moveSelectionUI.gameObject.SetActive(false);
+                if (moveIndex == HedgehogBase.MaxNumOfMoves) // 4
+                {
+                    // Dont learn new move
+                    StartCoroutine(dialogBox.TypeDialog($"{playerUnit.Hedgehog.Base.Name} did not learn {moveToLearn.Name}"));
+                }
+                else
+                {
+                    // Forget the selected move and learn new move
+                    var selectedMove = playerUnit.Hedgehog.Moves[moveIndex].Base;
+                    StartCoroutine(dialogBox.TypeDialog($"{playerUnit.Hedgehog.Base.Name} forgot {selectedMove.Name} and learned {moveToLearn.Name}"));
+                    
+                    playerUnit.Hedgehog.Moves[moveIndex] = new Move(moveToLearn); // creating an instance of the new move and replacing old move
+                }
+
+                moveToLearn = null; // reset it
+                state = BattleState.RunningTurn;
+            };
+
+            moveSelectionUI.HandleMoveSelection(onMoveSelected);
+        }
     }
+
+    public void SelectMoveSelction()
+    {
+        moveSelectionUI.gameObject.SetActive(false);
+        if (moveSelectionUI.CurrentSelection == HedgehogBase.MaxNumOfMoves) // 4
+        {
+            // Dont learn new move
+            StartCoroutine(dialogBox.TypeDialog($"{playerUnit.Hedgehog.Base.Name} did not learn {moveToLearn.Name}"));
+        }
+        else
+        {
+            // Forget the selected move and learn new move
+            var selectedMove = playerUnit.Hedgehog.Moves[moveSelectionUI.CurrentSelection].Base;
+            StartCoroutine(dialogBox.TypeDialog($"{playerUnit.Hedgehog.Base.Name} forgot {selectedMove.Name} and learned {moveToLearn.Name}"));
+            
+            playerUnit.Hedgehog.Moves[moveSelectionUI.CurrentSelection] = new Move(moveToLearn); // creating an instance of the new move and replacing old move
+        }
+
+        moveToLearn = null; // reset it
+        state = BattleState.RunningTurn;
+    }
+
+    
 
     void HandleActionSelection()
     {

@@ -8,12 +8,24 @@ public class Character : MonoBehaviour
     public float moveSpeed;
 
     public bool IsMoving { get; private set; }
+    public float OffSetY { get; private set; } = 0.3f;
 
     CharacterAnimator animator;
 
     private void Awake()
     {
         animator = GetComponent<CharacterAnimator>();
+        SetPositionAndSnapToTile(transform.position); // snap the current position of the character to the center of the tile
+    }
+
+    public void SetPositionAndSnapToTile(Vector2 pos)
+    {
+        // snap position to center of the tile
+        // if position is set to 2.3 -> Floored to 2 and added 0.5, so it snaps to center of the tile
+        pos.x = Mathf.Floor(pos.x) + 0.5f; 
+        pos.y = Mathf.Floor(pos.y) + 0.5f + OffSetY; 
+
+        transform.position = pos;
     }
 
     // move player from current position from starting position over a period of time
